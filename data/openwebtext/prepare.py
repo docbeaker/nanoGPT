@@ -24,8 +24,11 @@ if __name__ == '__main__':
     split_dataset = dataset["train"].train_test_split(test_size=0.0005, seed=2357, shuffle=True)
     split_dataset['val'] = split_dataset.pop('test') # rename the test split to val
 
-    split_dataset["train"] = split_dataset["train"][:100]
-    split_dataset["val"] = split_dataset["val"][:100]
+    indices = np.arange(100)
+    split_dataset["train"] = split_dataset["train"].select(indices)
+    split_dataset["val"] = split_dataset["val"].select(indices)
+    print(split_dataset)
+    import sys; sys.exit()
 
     # this results in:
     # >>> split_dataset
