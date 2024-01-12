@@ -27,8 +27,6 @@ if __name__ == '__main__':
     indices = np.arange(100)
     split_dataset["train"] = split_dataset["train"].select(indices)
     split_dataset["val"] = split_dataset["val"].select(indices)
-    print(split_dataset)
-    import sys; sys.exit()
 
     # this results in:
     # >>> split_dataset
