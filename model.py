@@ -57,7 +57,7 @@ class CausalSelfAttention(nn.Module):
         qkv = self.c_attn(x)
         hs = self.n_embd // self.n_head
         v = qkv[:, :, :self.n_embd].view(B, T, self.n_head, hs).transpose(1, 2) # (B, nh, T, hs)
-        qk = qkv[:, :, self.n_embd:].view(B, T, self.n_head, self.n_embd).transpose(1, 2) # (B, nh, T, de)
+        qkv = qkv[:, :, self.n_embd:].view(B, T, self.n_head, self.n_embd).transpose(1, 2) # (B, nh, T, de)
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         if self.flash:
             # efficient attention using Flash Attention CUDA kernels
@@ -65,7 +65,7 @@ class CausalSelfAttention(nn.Module):
         else:
             # manual implementation of attention
             # qk in (B, nh, T, de), x in (B, T, de)
-            att = (qk @ x.unsqueeze(1).transpose(2, 3)) * (1.0 / math.sqrt(hs))
+            att = (qkv @ x.unsqueeze(1).transpose(2, 3)) * (1.0 / math.sqrt(hs))
             att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
             att = F.softmax(att, dim=-1)
             att = self.attn_dropout(att)
