@@ -215,11 +215,17 @@ def estimate_loss():
     model.eval()
     for split in ['train', 'val']:
         losses = torch.zeros(eval_iters)
+        n_total, n_correct = 0, 0
         for k in range(eval_iters):
             X, Y = get_batch(split)
             with ctx:
                 logits, loss = model(X, Y)
             losses[k] = loss.item()
+            max_idx = logits.argmax(axis=-1)
+            n_correct += (Y == max_idx).sum()
+            n_total += torch.numel(Y)
+        if eval_only:
+            print(f"{split} accuracy = {n_correct / n_total:.4f}")
         out[split] = losses.mean()
     model.train()
     return out
