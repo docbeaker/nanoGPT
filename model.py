@@ -46,17 +46,8 @@ class CausalSelfAttention(nn.Module):
                                     .view(1, 1, config.block_size, config.block_size))
         self.register_parameter(
             "posweight",
-            nn.Parameter(1.0 + 0.2 * torch.randn((config.n_head, config.block_size)))
+            nn.Parameter(1.0 + 0.2 * torch.randn((config.n_head, 1, config.block_size + 1)))
         )
-        h, i, j = torch.meshgrid(
-            torch.arange(config.n_head),
-            torch.arange(config.block_size),
-            torch.arange(config.block_size),
-            indexing="ij"
-        )
-        self.register_buffer("hidx", h, persistent=False)
-        self.register_buffer("iidx", i, persistent=False)
-        self.register_buffer("jidx", j, persistent=False)
 
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
@@ -70,9 +61,12 @@ class CausalSelfAttention(nn.Module):
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         # manual implementation of attention
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att * self.posweight[self.hidx, torch.abs(self.iidx - self.jidx)]
-        att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
 
+        att = nn.functional.pad(att, (0, 0, 1, 0)).view(B, self.n_head, T, T+1)
+        att = att * self.posweight
+        att = att.view(B, self.n_head, T+1, T)[:,:,1:,:]
+
+        att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
         att = F.softmax(att, dim=-1)
         att = self.attn_dropout(att)
         y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
