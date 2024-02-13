@@ -45,8 +45,10 @@ class CausalSelfAttention(nn.Module):
         self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
                                     .view(1, 1, config.block_size, config.block_size))
         self.register_parameter(
-            "posweight",
-            nn.Parameter(1.0 + 0.2 * torch.randn((config.n_head, 1, config.block_size + 1)))
+            "erT",
+            nn.Parameter(0.02 * torch.randn(
+                (1, config.n_head, config.n_embd // config.n_head, config.block_size)
+            )) # as this is an "embedding," use the same narrow gaussian for initialization
         )
 
     def forward(self, x):
@@ -62,9 +64,9 @@ class CausalSelfAttention(nn.Module):
         # manual implementation of attention
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
 
-        att = nn.functional.pad(att, (0, 0, 1, 0)).view(B, self.n_head, T, T+1)
-        att = att * self.posweight
-        att = att.view(B, self.n_head, T+1, T)[:,:,1:,:]
+        qert = q @ self.erT
+        qert = nn.functional.pad(qert, (1, 0)).view(B, self.n_head, T+1, T)[:,:,1:,:]
+        att = att + qert
 
         att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
         att = F.softmax(att, dim=-1)
